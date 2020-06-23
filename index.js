@@ -6,7 +6,7 @@ const auth = require("./token.json")
 class Player {
     constructor(playerId, playerName, user) { 
         this.roleOfPlayer = 0; 
-        this.isPartyLeader = 0;
+        //this.isPartyLeader = 0;
         this.name = playerName;
         this.id = playerId;
         this.user = user
@@ -25,9 +25,14 @@ let currentRound = 0;
 let needTwoFails;
 let successes = 0;
 let fails = 0;
+let playersOnQuest = [];
+let partyLeader;
 
 
 client.on("message", msg => {
+
+    if (msg.author.bot)
+        return;
 
    // let messengerName = msg.member.user.username;
 
@@ -36,7 +41,8 @@ client.on("message", msg => {
                 msg.channel.send("A lobby has been created! \nUse !join to enter the lobby!\nUse !start to begin the game")
                 gamestatus = 1;
                 
-                addPlayer( msg.member.user.username, msg.member.id, showLobby, msg.member.user);
+                addPlayer( msg.member.user.username, msg.member.id, msg.member.user);
+                showPlayers(msg, lobby, "Lobby");
                
 
             } else {
@@ -46,25 +52,38 @@ client.on("message", msg => {
             // TODO: MAKE SURE THAT A USER CAN NOT JOIN TWICE OR MORE
         } else if (msg.content === "!join" && gamestatus === 1) {
             msg.reply("You have joined the lobby!");
-            addPlayer( msg.member.user.username, msg.member.id, showLobby, msg.member.user);   
+            addPlayer( msg.member.user.username, msg.member.id, msg.member.user);
+            showPlayers(msg, lobby, "Lobby");  
            
         } else if (msg.content === "!showlobby") {
-            showLobby();
+            showPlayers(msg, lobby, "Lobby");
 
         } else if (msg.content === "!quit" && gamestatus === 1) {
             let temp = checkName(msg.member.user.username);
             if (temp !== -1) {
-                removePlayer(temp);
+                removePlayer(temp, lobby);
                 msg.reply("you have been removed from the lobby!")
             } else {
                 msg.reply("You are not in the lobby!");
             }
 
-        } else if (msg.content === "!start") {
+        } else if (msg.content === "!start" && gamestatus === 1) {
             let numPlayers = lobby.length;
-            if (numPlayers < 5 || numPlayers >= 10) {
-                msg.channel.send("You need 5-10 players for a game!")
-            } else {
+
+            // UNCOMMEMT FOR NON TESTING
+
+          /*  if (numPlayers < 5 || numPlayers >= 10) {
+               msg.channel.send("You need 5-10 players for a game!")
+            } else { */
+               
+
+           // TESTING STUFF WITH 2 PEOPLE
+                
+                amtEvil = 1;
+                playersNeededForQuest = [2,3,2,3,3];
+                
+
+
                 // game start/inital round
                 gamestatus = 2;
                 // setting up the game
@@ -97,6 +116,8 @@ client.on("message", msg => {
                          playersNeededForQuest = [3,4,4,5,5];
                          needTwoFails = 1;
                          break;
+
+                         
                 }
 
                 // assign evil roles and party leader (random)
@@ -104,7 +125,7 @@ client.on("message", msg => {
                 let evilMessage = "";
                 let i = 0;
                 while (i < amtEvil) {
-                    let evil = Math.floor(Math.random() * (numPlayers) + 1 )
+                    let evil = Math.floor(Math.random() * (numPlayers) )
                         
                     if (lobby[evil].roleOfPlayer === 1) {
                             continue;
@@ -123,48 +144,100 @@ client.on("message", msg => {
                     }
                 }
 
-                let partyLeader = Math.floor(Math.random() * (numPlayers) + 1);
-                lobby[partyLeader].isPartyLeader = 1;
-                msg.channel.send("<@" +lobby[partyLeader].id + "> is the party leader!");
-                
+                let partyLeaderRand = Math.floor(Math.random() * (numPlayers));
+             //   lobby[partyLeader].isPartyLeader = 1;
+                partyLeader = lobby[partyLeaderRand];
+                msg.channel.send("<@" +partyLeader.id + "> is the party leader! Choose " + playersNeededForQuest[currentRound] + " players to go on this quest!");
 
+           // }
 
-
-            }
+           return;
         }
 
+                // actual game
+                if ( (successes < 3 || fails < 3) && gamestatus === 2)  {
+                    // start of a round (selecting players to go on a quest)
+                   
+                       
+                        if (msg.author === partyLeader.user) {  
+                            
+                            // check if the message was sent by party leader
+                            if (playersOnQuest.length != playersNeededForQuest[currentRound] ) {
+                            
+                                let temp = addToQuest(msg);
+                            
+                            // check to see if message is actually for adding a user to quest
+                            if (temp != -1) {
+                                if (playersOnQuest.indexOf(temp) === -1) {
+                                    playersOnQuest.push(temp);
+                                    msg.channel.send("<@" + temp.id + "> has joined the quest!");
+                                    if (playersOnQuest.length === playersNeededForQuest[currentRound]) {
+                                        showPlayers(msg, playersOnQuest, "PLAYERS ON QUEST");
+                                        msg.reply("Please type CONFIRM to validate that the selected party members are correct!");
+                                    }
+                                } else {
+                                    //msg.reply("That person is already in the quest!");
+                                    removePlayer(temp, playersOnQuest);
+                                    msg.channel.send("<@" + temp.id + "> has been removed from the quest!")
+                                }
+                            }
+                        } else {
+                        // voting phase 
+                        if (msg.content === "CONFIRM") {
+                            msg.channel.send("Voting begins for party approval!")
+                        }
+                    } 
+                        
+                }
 
-        function showLobby() {
-            msg.channel.send("====================================\nLobby\n====================================\n")
+                    
 
-            let temp = "";
-            
-            for (let i = 0; i < lobby.length; i++) {
-               temp += lobby[i].name + "\n";
-            }
-            msg.channel.send(temp);
-        }
+                }
+
+
+
 });
 
 
 
-function addPlayer(playerName, playerId, callback, user) {
+function addPlayer(playerName, playerId, user) {
     let player = new Player(playerId, playerName, user);
     lobby.push(player)
-    callback();
+   // callback();
  
 }
 
-function removePlayer(player) {
-    let num = lobby.indexOf(player)
+
+function showPlayers(msg, arrayOfPlayers, name) {
+    msg.channel.send("====================================\n" + name + "\n====================================\n")
+
+    let temp = "";
+    
+    for (let i = 0; i < arrayOfPlayers.length; i++) {
+       temp +=  arrayOfPlayers[i].name + "\n";
+    }
+    msg.channel.send(temp);
+}
+
+function removePlayer(player, array) {
+    let num = array.indexOf(player)
     if (num > -1) {
-      lobby.splice(num, 1);  
+      array.splice(num, 1);  
     }
 }
 
 function checkName(name) {
     for (let i = 0; i < lobby.length; i++) {
         if (lobby[i].name === name) {
+            return lobby[i];
+        }
+    }
+    return -1;
+}
+
+function addToQuest(msg) {
+    for (let i = 0; i < lobby.length; i++) {
+        if (msg.mentions.users.has(lobby[i].id)) {
             return lobby[i];
         }
     }
