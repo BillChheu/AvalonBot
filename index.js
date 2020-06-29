@@ -29,6 +29,7 @@ let playersOnQuest = [];
 let partyLeader;
 
 
+
 client.on("message", msg => {
 
     if (msg.author.bot)
@@ -153,14 +154,12 @@ client.on("message", msg => {
 
            return;
         }
-
                 // actual game
                 if ( (successes < 3 || fails < 3) && gamestatus === 2)  {
                     // start of a round (selecting players to go on a quest)
                    
-                       
+
                         if (msg.author === partyLeader.user) {  
-                            
                             // check if the message was sent by party leader
                             if (playersOnQuest.length != playersNeededForQuest[currentRound] ) {
                             
@@ -182,21 +181,26 @@ client.on("message", msg => {
                                 }
                             }
                         } else {
-                        // voting phase 
+                            // voting phase
+                        // confirmation of party selected once it is full
                         if (msg.content === "CONFIRM") {
-                            msg.channel.send("Voting begins for party approval!")
-                        }
+                            msg.channel.send("Voting begins for party approval!");
+                          //  votingStatus = 1;
+
+                          let playerVotes = vote(lobby,"agree", "disagree");
+                        } 
+                        
+
                     } 
                         
                 }
-
-                    
 
                 }
 
 
 
 });
+
 
 
 
@@ -243,6 +247,59 @@ function addToQuest(msg) {
     }
     return -1;
 }
+
+function vote(voters, agree, disagree) {
+    let users = [];
+    let votesOfPlayers = new Map();
+    for (let i = 0; i < voters.length; i++) {
+        users[i] = voters[i].user;
+    }
+
+    
+
+    let test = function(msg) {
+
+        if (msg.author.bot)
+            return;
+
+        let voterIndex = users.indexOf(msg.author);
+        //console.log(voterIndex);
+
+        if (voterIndex != -1 && users.length != 0) {
+            if (msg.content === "!"+ agree) {
+                msg.author.send("You have voted " + agree + "!" );
+                votesOfPlayers.set(voters[voterIndex], 1);
+                removePlayer(users[voterIndex], users);
+
+                if (users.length === 0) {
+                    client.off("message", test);
+                    msg.channel.send("Voting has finished!");
+                    return votesOfPlayers;
+                }
+
+            } else if (msg.content === "!"+ disagree) {
+                msg.author.send("You have voted " + disagree + "!");
+                votesOfPlayers.set(voters[voterIndex], -1);
+                removePlayer(users[voterIndex], users);
+                
+                if (users.length === 0) {
+                    client.off("message", test);
+                    msg.channel.send("Voting has finished!");
+                    return votesOfPlayers;
+                }
+
+            } else {
+                msg.author.send("Invalid Response!")
+            }
+        }
+    }
+     let temp =  client.on("message",  test);
+
+     if (temp != null) {
+         return temp;
+     }
+}
+
 
 
 
