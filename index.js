@@ -28,6 +28,9 @@ let fails = 0;
 let playersOnQuest = [];
 let partyLeader;
 
+let votingPhase = 0;
+let votesOfPlayers;
+
 
 
 client.on("message", msg => {
@@ -156,9 +159,27 @@ client.on("message", msg => {
         }
                 // actual game
                 if ( (successes < 3 || fails < 3) && gamestatus === 2)  {
-                    // start of a round (selecting players to go on a quest)
-                   
 
+
+                    if (votingPhase === 1) {
+                        if (votesOfPlayers.has(msg.author) === false) {
+                            if (msg.content === "!agree") {
+                                votesOfPlayers.set(msg.author, 1);
+                            } else if (msg.content === "!disagree") {
+                                votesOfPlayers.set(msg.author, -1);
+                            }
+
+                            if (votesOfPlayers.size === lobby.length) {
+                                
+                            }
+                            
+                        }
+
+
+
+                    } else {
+
+                    // start of a round (selecting players to go on a quest)
                         if (msg.author === partyLeader.user) {  
                             // check if the message was sent by party leader
                             if (playersOnQuest.length != playersNeededForQuest[currentRound] ) {
@@ -186,16 +207,22 @@ client.on("message", msg => {
                         if (msg.content === "CONFIRM") {
                             msg.channel.send("Voting begins for party approval!");
                           //  votingStatus = 1;
+                            let users = []
+                            for (let i = 0; i < lobby.length; i++) {
+                                users[i] = lobby[i].user;
+                            }
+                            votingPhase = 1;
+                            votesOfPlayers = new Map();
 
-                          let playerVotes = vote(lobby,"agree", "disagree");
+
                         } 
                         
 
                     } 
                         
                 }
-
-                }
+            }
+        }
 
 
 
@@ -206,9 +233,7 @@ client.on("message", msg => {
 
 function addPlayer(playerName, playerId, user) {
     let player = new Player(playerId, playerName, user);
-    lobby.push(player)
-   // callback();
- 
+    lobby.push(player) 
 }
 
 
