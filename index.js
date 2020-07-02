@@ -27,8 +27,10 @@ let successes = 0;
 let fails = 0;
 let playersOnQuest = [];
 let partyLeader;
+let votesOfPlayers;
 
-
+let votingFailures = 0;
+let votingPhase = 0;
 
 client.on("message", msg => {
 
@@ -185,9 +187,40 @@ client.on("message", msg => {
                         // confirmation of party selected once it is full
                         if (msg.content === "CONFIRM") {
                             msg.channel.send("Voting begins for party approval!");
-                          //  votingStatus = 1;
 
-                          let playerVotes = vote(lobby,"agree", "disagree");
+                            
+                          
+                            vote(lobby, "agree", "disagree");
+                            client.on("waitForVotes", () => {
+                                let totalVotes = 0;
+                                for (let i = 0; i < lobby.length; i++) {
+                                    let voteValue = votesOfPlayers.get(lobby[i]);
+                                   // console.log(lobby[i]);
+                                    totalVotes += voteValue;
+    
+                                    if (voteValue === 1) {
+                                        msg.channel.send(lobby[i].name + " voted for the party!");    
+                                    } else if (voteValue === -1) {
+                                        msg.channel.send(lobby[i].name + " voted against the party!");
+                                    }
+                                }
+    
+                                if (totalVotes > 0) {
+                                    msg.channel.send("The vote has passed! The quest will now begin!");
+                                    votingFailures = 0;
+    
+                                } else {
+                                    votingFailures++;
+                                    if (votingFailures >= 5) {
+                                        // game over
+                                        msg.channel.send("Evil Wins! You have failed voting for the quest 5 consecutive times!")
+                                    } else {
+                                        msg.channel.send("The vote has failed! The next party leader will decide who to go");
+                                    }
+                                }
+                            });
+
+
                         } 
                         
 
@@ -248,14 +281,12 @@ function addToQuest(msg) {
     return -1;
 }
 
-function vote(voters, agree, disagree) {
+ function vote(voters, agree, disagree) {
     let users = [];
-    let votesOfPlayers = new Map();
+     votesOfPlayers = new Map();
     for (let i = 0; i < voters.length; i++) {
         users[i] = voters[i].user;
     }
-
-    
 
     let test = function(msg) {
 
@@ -274,7 +305,8 @@ function vote(voters, agree, disagree) {
                 if (users.length === 0) {
                     client.off("message", test);
                     msg.channel.send("Voting has finished!");
-                    return votesOfPlayers;
+                    client.emit("waitForVotes");
+                   // return votesOfPlayers;
                 }
 
             } else if (msg.content === "!"+ disagree) {
@@ -285,7 +317,8 @@ function vote(voters, agree, disagree) {
                 if (users.length === 0) {
                     client.off("message", test);
                     msg.channel.send("Voting has finished!");
-                    return votesOfPlayers;
+                    client.emit("waitForVotes");
+                    //return votesOfPlayers;
                 }
 
             } else {
@@ -293,11 +326,7 @@ function vote(voters, agree, disagree) {
             }
         }
     }
-     let temp =  client.on("message",  test);
-
-     if (temp != null) {
-         return temp;
-     }
+      client.on("message",  test);
 }
 
 
