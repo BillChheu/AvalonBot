@@ -6,7 +6,6 @@ const auth = require("./token.json")
 class Player {
     constructor(playerId, playerName, user) { 
         this.roleOfPlayer = 0; 
-        //this.isPartyLeader = 0;
         this.name = playerName;
         this.id = playerId;
         this.user = user
@@ -19,21 +18,25 @@ const failureEmoji = ":red_circle:"
 
 
 let gamestatus = 0;
-let lobby = [];
 
+let lobby = [];
 let amtEvil = 0;
 let roundHistory = [];
 let playersNeededForQuest = [];
-let currentRound = 0;
 let needTwoFails;
+
+let currentRound = 0;
 let successes = 0;
 let fails = 0;
 let playersOnQuest = [];
 let partyLeader;
-let votesOfPlayers;
 
-let votingFailures = 0;
-let votingPhase = 0;
+let votesOfPlayers;
+let failVotes = 0;
+let numFails = 1;
+
+let consecutiveVotingFailures    = 0;
+
 
 client.on("message", msg => {
 
@@ -215,30 +218,50 @@ client.on("message", msg => {
     
                                 if (totalVotes > 0) {
                                     msg.channel.send("The vote has passed! The quest will now begin!");
-                                    votingFailures = 0;
+                                    consecutiveVotingFailures = 0;
                                     totalVotes = 0;
 
-                                    for (let i = 0; i < playersOnQuest; i++) {
-                                        playersOnQuest[i].user.send("Type '!success' to help succeed the quest or type '!fail' to fail the quest (should only do if you are EVIL!)")
+                                    for (let i = 0; i < playersOnQuest.length; i++) {
+                                        playersOnQuest[i].user.send("Type '!success' to succeed the quest or type '!fail' to fail the quest (should only do if you are EVIL!)")
                                     }
 
                                     vote(playersOnQuest, "success", "fail");
                                     client.on("waitForVotes", questVote = () => {
                                         for (let i = 0; i < lobby.length; i++) {
                                             let voteValue = votesOfPlayers.get(playersOnQuest[i].user);
-                                            totalVotes += voteValue;
+                                            
+                                            if (voteValue === -1)
+                                                failVotes++;
+                                            
                                         }
 
-                                        if (totalVotes > 0) {
+                                        if (currentRound === 4 && needTwoFails === 1) {
+                                            msg.channel.send("This quest requires 2 failure votes to fail the quest!")
+                                            numFails = 2;
+                                        } else {
+                                            numFails = 1;
+                                        }
+
+                                        client.off("waitForVotes", questVote);
+
+                                        if ( failVotes < numFails) {
                                             successes++;
                                             roundHistory[currentRound] = successEmoji;
-                                            currentRound++;
-                                            getNextPartyLeader();
-                                            msg.channel.send("The quest is a sucess!");
-                                            showScoreboard(msg)
-                                            msg.channel.send("<@" + partyLeader.id + "> is the new party leader! Choose " + playersNeededForQuest[currentRound] + " players to go on the quest!");
-                                            playersOnQuest = [];
+                                            msg.channel.send("The quest is a SUCCESS!");
+                                            if (failVotes > 0)
+                                                msg.channel.send("There was 1 failure!");
+                                        } else {
+                                            fails++;
+                                            roundHistory[currentRound] = failureEmoji;
+                                            msg.channel.send("The quest was a FAILURE!\nThere was " + failVotes + " failure(s)!");
                                         }
+
+                                        currentRound++;
+                                        getNextPartyLeader();
+                                        showScoreboard(msg);
+                                        msg.channel.send("<@" + partyLeader.id + "> is the new party leader! Choose " + playersNeededForQuest[currentRound] + " players to go on the quest!");
+                                        playersOnQuest = [];
+                                        failVotes = 0;
 
                                     });
 
@@ -247,12 +270,15 @@ client.on("message", msg => {
                                     
     
                                 } else {
-                                    votingFailures++;
-                                    if (votingFailures >= 5) {
+                                    consecutiveVotingFailures++;
+                                    if (consecutiveVotingFailures >= 5) {
                                         // game over
                                         msg.channel.send("Evil Wins! You have failed voting for the quest 5 consecutive times!")
                                     } else {
-                                        msg.channel.send("The vote has failed! The next party leader will decide who to go");
+                                        msg.channel.send("The vote has failed!");
+                                        getNextPartyLeader();
+                                        msg.channel.send("<@" + partyLeader.id + "> is the new party leader! Choose " + playersNeededForQuest[currentRound] + " players to go on the quest!");
+                                        playersOnQuest = [];
                                     }
                                 }
                             });
