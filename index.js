@@ -21,19 +21,20 @@ let gamestatus = 0;
 
 let lobby = [];
 let amtEvil = 0;
-let roundHistory = [];
 let playersNeededForQuest = [];
 let needTwoFails;
 
+let roundHistory = [];
 let currentRound = 0;
 let successes = 0;
 let fails = 0;
 let playersOnQuest = [];
 let partyLeader;
 
+let numFails = 1;
 let votesOfPlayers;
 let failVotes = 0;
-let numFails = 1;
+
 
 let consecutiveVotingFailures = 0;
 
@@ -43,7 +44,27 @@ client.on("message", msg => {
     if (msg.author.bot)
         return;
 
-   // let messengerName = msg.member.user.username;
+    if (msg.content === "!end" && gamestatus > 0) {
+        gamestatus = 0;
+        lobby = [];
+        amtEvil = 0;
+        playersNeededForQuest = [];
+        needTwoFails;
+
+        roundHistory = [];
+        currentRound = 0;
+        successes = 0;
+        fails = 0;
+        playersOnQuest = [];
+        partyLeader = undefined;
+
+        numFails = 1;
+        votesOfPlayers;
+        failVotes = 0;
+
+        msg.channel.send("The game has ended!");
+        return;
+    }
 
         if (msg.content === "!avalon") {
             if (gamestatus === 0) {
@@ -94,7 +115,7 @@ client.on("message", msg => {
                 
 
 
-                // game start/inital round
+                // game setup
                 gamestatus = 2;
                 // setting up the game
                 switch(numPlayers) {
@@ -157,16 +178,15 @@ client.on("message", msg => {
                 getNextPartyLeader();
                 msg.channel.send("<@" +partyLeader.id + "> is the party leader! Choose " + playersNeededForQuest[currentRound] + " players to go on this quest!");
 
-           return;
-        }
+        } 
                 // actual game
                 if ( (successes < 3 || fails < 3) && gamestatus === 2)  {
                     // start of a round (selecting players to go on a quest)
                    
-
+                        // check if the message was sent by party leader
                         if (msg.author === partyLeader.user) {  
-                            // check if the message was sent by party leader
-                            if (playersOnQuest.length != playersNeededForQuest[currentRound] ) {
+                            
+                            if (playersOnQuest.length < playersNeededForQuest[currentRound] ) {
                             
                                 let temp = addToQuest(msg);
                             
@@ -257,10 +277,10 @@ client.on("message", msg => {
                                         showScoreboard(msg);
 
                                         if (successes >= 3) {
-                                            msg.channel.send("Good wins!\nEnter 'RESTART' to make a new game or 'RETURN' to go back to lobby");
+                                            msg.channel.send("Good wins!\nEnter 'RESTART' to make a new game, 'RETURN' to go back to lobby, or '!end' to end the game!");
                                             gamestatus = 4;
                                         } else if (fails >= 3) {
-                                            msg.channel.send("Evil wins!\nEnter 'RESTART' to make a new game or 'RETURN' to go back to lobby")
+                                            msg.channel.send("Evil wins!\nEnter 'RESTART' to make a new game or 'RETURN' to go back to lobby, or !end' to end the game!")
                                             gamestatus = 4;
                                         } else {
                                             msg.channel.send("<@" + partyLeader.id + "> is the new party leader! Choose " + playersNeededForQuest[currentRound] + " players to go on the quest!");
@@ -269,7 +289,7 @@ client.on("message", msg => {
                                         }
 
                                     });
-                                    
+
               
                                 
                                 } else {
@@ -277,7 +297,7 @@ client.on("message", msg => {
                                     if (consecutiveVotingFailures >= 5) {
                                         // game over
                                         gamestatus = 4;
-                                        msg.channel.send("Evil Wins! You have failed voting for the quest 5 consecutive times!\nType 'RESTART' to make a new game or 'RETURN' to go back to lobby")
+                                        msg.channel.send("Evil Wins! You have failed voting for the quest 5 consecutive times!\nType 'RESTART' to make a new game, 'RETURN' to go back to lobby or '!end' to end the game")
                                     } else {
                                         msg.channel.send("The vote has failed!");
                                         getNextPartyLeader();
@@ -287,7 +307,13 @@ client.on("message", msg => {
                                 }
                             });
 
-                        } 
+                        } else {
+                            let temp = addToQuest(msg);
+                            if (playersOnQuest.indexOf(temp) != -1) {
+                                removePlayer(temp, playersOnQuest);
+                                msg.channel.send("<@" + temp.id + "> has been removed from the quest!")
+                            }
+                        }
                         
 
                     } 
@@ -370,8 +396,9 @@ function addToQuest(msg) {
 }
 
  function vote(voters, agree, disagree) {
-    let users = [];
+     let users = [];
      votesOfPlayers = new Map();
+
     for (let i = 0; i < voters.length; i++) {
         users[i] = voters[i].user;
     }
@@ -381,8 +408,7 @@ function addToQuest(msg) {
         if (msg.author.bot)
             return;
 
-        let voterIndex = users.indexOf(msg.author);
-        //console.log(voterIndex);
+        let voterIndex = users.indexOf(msg.author);      
 
         if (voterIndex != -1 && users.length != 0) {
             if (msg.content === "!"+ agree) {
@@ -393,7 +419,6 @@ function addToQuest(msg) {
                 if (users.length === 0) {
                     client.off("message", test);
                     client.emit("waitForVotes");
-                   // return votesOfPlayers;
                 }
 
             } else if (msg.content === "!"+ disagree) {
@@ -404,10 +429,9 @@ function addToQuest(msg) {
                 if (users.length === 0) {
                     client.off("message", test);
                     client.emit("waitForVotes");
-                    //return votesOfPlayers;
                 }
 
-            } else {
+            } else if (msg.content != "!end") {
                 msg.author.send("Invalid Response!")
             }
         }
