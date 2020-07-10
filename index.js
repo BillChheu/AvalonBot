@@ -35,7 +35,7 @@ let votesOfPlayers;
 let failVotes = 0;
 let numFails = 1;
 
-let consecutiveVotingFailures    = 0;
+let consecutiveVotingFailures = 0;
 
 
 client.on("message", msg => {
@@ -90,6 +90,7 @@ client.on("message", msg => {
                 
                 amtEvil = 1;
                 playersNeededForQuest = [2,2,2,2,2];
+                needTwoFails = 1;
                 
 
 
@@ -153,12 +154,8 @@ client.on("message", msg => {
                     }
                 }
 
-                let partyLeaderRand = Math.floor(Math.random() * (numPlayers));
-             //   lobby[partyLeader].isPartyLeader = 1;
-                partyLeader = lobby[partyLeaderRand];
+                getNextPartyLeader();
                 msg.channel.send("<@" +partyLeader.id + "> is the party leader! Choose " + playersNeededForQuest[currentRound] + " players to go on this quest!");
-
-           // }
 
            return;
         }
@@ -183,7 +180,6 @@ client.on("message", msg => {
                                         msg.reply("Please type CONFIRM to validate that the selected party members are correct!");
                                     }
                                 } else {
-                                    //msg.reply("That person is already in the quest!");
                                     removePlayer(temp, playersOnQuest);
                                     msg.channel.send("<@" + temp.id + "> has been removed from the quest!")
                                 }
@@ -204,7 +200,6 @@ client.on("message", msg => {
                                 let totalVotes = 0;
                                 for (let i = 0; i < lobby.length; i++) {
                                     let voteValue = votesOfPlayers.get(lobby[i].user);
-                                   // console.log(lobby[i]);
                                     totalVotes += voteValue;
     
                                     if (voteValue === 1) {
@@ -220,6 +215,7 @@ client.on("message", msg => {
                                     msg.channel.send("The vote has passed! The quest will now begin!");
                                     consecutiveVotingFailures = 0;
                                     totalVotes = 0;
+                                    // testing purpose
 
                                     for (let i = 0; i < playersOnQuest.length; i++) {
                                         playersOnQuest[i].user.send("Type '!success' to succeed the quest or type '!fail' to fail the quest (should only do if you are EVIL!)")
@@ -227,15 +223,15 @@ client.on("message", msg => {
 
                                     vote(playersOnQuest, "success", "fail");
                                     client.on("waitForVotes", questVote = () => {
+                                        msg.channel.send("Voting has finished!");
                                         for (let i = 0; i < lobby.length; i++) {
                                             let voteValue = votesOfPlayers.get(playersOnQuest[i].user);
                                             
                                             if (voteValue === -1)
                                                 failVotes++;
-                                            
                                         }
 
-                                        if (currentRound === 4 && needTwoFails === 1) {
+                                        if (currentRound === 3 && needTwoFails === 1) {
                                             msg.channel.send("This quest requires 2 failure votes to fail the quest!")
                                             numFails = 2;
                                         } else {
@@ -259,21 +255,29 @@ client.on("message", msg => {
                                         currentRound++;
                                         getNextPartyLeader();
                                         showScoreboard(msg);
-                                        msg.channel.send("<@" + partyLeader.id + "> is the new party leader! Choose " + playersNeededForQuest[currentRound] + " players to go on the quest!");
-                                        playersOnQuest = [];
-                                        failVotes = 0;
+
+                                        if (successes >= 3) {
+                                            msg.channel.send("Good wins!\nEnter 'RESTART' to make a new game or 'RETURN' to go back to lobby");
+                                            gamestatus = 4;
+                                        } else if (fails >= 3) {
+                                            msg.channel.send("Evil wins!\nEnter 'RESTART' to make a new game or 'RETURN' to go back to lobby")
+                                            gamestatus = 4;
+                                        } else {
+                                            msg.channel.send("<@" + partyLeader.id + "> is the new party leader! Choose " + playersNeededForQuest[currentRound] + " players to go on the quest!");
+                                            playersOnQuest = [];
+                                            failVotes = 0;
+                                        }
 
                                     });
-
-
-
                                     
-    
+              
+                                
                                 } else {
                                     consecutiveVotingFailures++;
                                     if (consecutiveVotingFailures >= 5) {
                                         // game over
-                                        msg.channel.send("Evil Wins! You have failed voting for the quest 5 consecutive times!")
+                                        gamestatus = 4;
+                                        msg.channel.send("Evil Wins! You have failed voting for the quest 5 consecutive times!\nType 'RESTART' to make a new game or 'RETURN' to go back to lobby")
                                     } else {
                                         msg.channel.send("The vote has failed!");
                                         getNextPartyLeader();
@@ -283,7 +287,6 @@ client.on("message", msg => {
                                 }
                             });
 
-
                         } 
                         
 
@@ -291,7 +294,29 @@ client.on("message", msg => {
                         
                 }
 
+            }
+            // game end
+            if (gamestatus === 4) {
+                if (msg.content === "RESTART") {
+                    currentRound = 0;
+                    playersOnQuest = [];
+                    fails = 0;
+                    roundHistory = [];
+                    successes = 0;
+                    gamestatus = 3;
+                    getNextPartyLeader();
+                    msg.channel.send("<@" + partyLeader.id + "> is the new party leader! Choose " + playersNeededForQuest[currentRound] + " players to go on the quest!");  
+                    
+                } else if (msg.content === "RETURN") {
+                    gamestatus = 1;
+                    currentRound = 0;
+                    playersOnQuest = [];
+                    roundHistory = [];
+                    fails = 0;
+                    successes = 0;
+                    showPlayers(msg, lobby, "LOBBY");
                 }
+            }
 
 
 
@@ -367,7 +392,6 @@ function addToQuest(msg) {
 
                 if (users.length === 0) {
                     client.off("message", test);
-                    msg.channel.send("Voting has finished!");
                     client.emit("waitForVotes");
                    // return votesOfPlayers;
                 }
@@ -379,7 +403,6 @@ function addToQuest(msg) {
                 
                 if (users.length === 0) {
                     client.off("message", test);
-                    msg.channel.send("Voting has finished!");
                     client.emit("waitForVotes");
                     //return votesOfPlayers;
                 }
@@ -393,6 +416,14 @@ function addToQuest(msg) {
 }
 
 function getNextPartyLeader() {
+
+    if (partyLeader === undefined) {
+        let partyLeaderRand = Math.floor(Math.random() * (lobby.length));
+        partyLeader = lobby[partyLeaderRand];
+    }
+
+
+
     let index = lobby.indexOf(partyLeader);
     index++;
 
