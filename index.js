@@ -109,7 +109,7 @@ client.on("message", msg => {
 
            // TESTING STUFF WITH 2 PEOPLE
                 
-                amtEvil = 1;
+                amtEvil = 2;
                 playersNeededForQuest = [2,2,2,2,2];
                 needTwoFails = 1;
                 
@@ -153,7 +153,7 @@ client.on("message", msg => {
 
                 // assign evil roles and party leader (random)
                 msg.channel.send("The game has started!");
-                let evilMessage = "";
+                let evilPlayers = [];
                 let i = 0;
                 while (i < amtEvil) {
                     let evil = Math.floor(Math.random() * (numPlayers) )
@@ -162,23 +162,28 @@ client.on("message", msg => {
                             continue;
                     } else {
                         lobby[evil].roleOfPlayer = 1;
-                        evilMessage += lobby[evil].name + ", ";
+                        evilPlayers.push(lobby[evil]);
                         i++;
                     }
                 }
-                
-                evilMessage += "are evil!";
 
-                for (let i = 0; i < lobby.length; i++) {
-                    if (lobby[i].roleOfPlayer === 1) {
-                        lobby[i].user.send(evilMessage);
+                for (let i = 0; i < evilPlayers.length; i++) {
+                        evilPlayers[i].user.send("You are evil!");
+                    for (let j = 0; j < evilPlayers.length; j++) {
+                        if ( i === j) {
+                            continue;
+                        } else {
+                             evilPlayers[i].user.send(evilPlayers[j].name + " is also evil!");
+                        }
                     }
                 }
+                
+               
 
                 getNextPartyLeader();
                 msg.channel.send("<@" +partyLeader.id + "> is the party leader! Choose " + playersNeededForQuest[currentRound] + " players to go on this quest!");
 
-        } 
+        }
                 // actual game
                 if ( (successes < 3 || fails < 3) && gamestatus === 2)  {
                     // start of a round (selecting players to go on a quest)
